@@ -1,42 +1,6 @@
 import { Body, Ecliptic, GeoVector, AstroTime, SiderealTime, e_tilt, DEG2RAD, RAD2DEG, SearchRiseSet, Observer } from 'astronomy-engine';
 
-// Autocomplete database of major cities in Tamil Nadu and India
-export const cities = [
-    { name: "Chennai", tamilName: "சென்னை", lat: 13.0827, lon: 80.2707 },
-    { name: "Coimbatore", tamilName: "கோயம்புத்தூர்", lat: 11.0168, lon: 76.9558 },
-    { name: "Madurai", tamilName: "மதுரை", lat: 9.9252, lon: 78.1198 },
-    { name: "Tiruchirappalli", tamilName: "திருச்சிராப்பள்ளி", lat: 10.7905, lon: 78.7047 },
-    { name: "Salem", tamilName: "சேலம்", lat: 11.6643, lon: 78.1460 },
-    { name: "Tirunelveli", tamilName: "திருநெல்வேலி", lat: 8.7139, lon: 77.7567 },
-    { name: "Thoothukudi", tamilName: "தூத்துக்குடி", lat: 8.7973, lon: 78.1348 },
-    { name: "Vellore", tamilName: "வேலூர்", lat: 12.9165, lon: 79.1325 },
-    { name: "Erode", tamilName: "ஈரோடு", lat: 11.3410, lon: 77.7172 },
-    { name: "Thanjavur", tamilName: "தஞ்சாவூர்", lat: 10.7870, lon: 79.1378 },
-    { name: "Cuddalore", tamilName: "கடலூர்", lat: 11.7562, lon: 79.7669 },
-    { name: "Kanchipuram", tamilName: "காஞ்சிபுரம்", lat: 12.8342, lon: 79.7036 },
-    { name: "Nagercoil", tamilName: "நாகர்கோவில்", lat: 8.1833, lon: 77.4119 },
-    { name: "Dindigul", tamilName: "திண்டுக்கல்", lat: 10.3673, lon: 77.9803 },
-    { name: "Hosur", tamilName: "ஓசூர்", lat: 12.7409, lon: 77.8253 },
-    { name: "Tiruppur", tamilName: "திருப்பூர்", lat: 11.1085, lon: 77.3411 },
-    { name: "Kumbakonam", tamilName: "கும்பகோணம்", lat: 10.9602, lon: 79.3845 },
-    { name: "Karaikudi", tamilName: "காரைக்குடி", lat: 10.0734, lon: 78.7729 },
-    { name: "Neyveli", tamilName: "நெய்வேலி", lat: 11.6016, lon: 79.4862 },
-    { name: "Puducherry", tamilName: "புதுச்சேரி", lat: 11.9416, lon: 79.8083 },
-    { name: "Nagapattinam", tamilName: "நாகப்பட்டினம்", lat: 10.7656, lon: 79.8424 },
-    { name: "Karur", tamilName: "கரூர்", lat: 10.9601, lon: 78.0816 },
-    { name: "Namakkal", tamilName: "நாமக்கல்", lat: 11.2189, lon: 78.1673 },
-    { name: "Sivakasi", tamilName: "சிவகாசி", lat: 9.4532, lon: 77.8024 },
-    { name: "Rajapalayam", tamilName: "ராஜபாளையம்", lat: 9.4503, lon: 77.5583 },
-    { name: "Pollachi", tamilName: "பொள்ளாச்சி", lat: 10.6589, lon: 77.0102 },
-    { name: "Ooty", tamilName: "ஊட்டி", lat: 11.4102, lon: 76.6950 },
-    { name: "Kanyakumari", tamilName: "கன்னியாகுமரி", lat: 8.0883, lon: 77.5385 },
-    { name: "Rameswaram", tamilName: "ராமேஸ்வரம்", lat: 9.2876, lon: 79.3129 },
-    { name: "Bengaluru", tamilName: "பெங்களூரு", lat: 12.9716, lon: 77.5946 },
-    { name: "Mumbai", tamilName: "மும்பை", lat: 19.0760, lon: 72.8777 },
-    { name: "New Delhi", tamilName: "புது தில்லி", lat: 28.6139, lon: 77.2090 },
-    { name: "Kolkata", tamilName: "கொல்கத்தா", lat: 22.5726, lon: 88.3639 },
-    { name: "Hyderabad", tamilName: "ஹைதராபாத்", lat: 17.3850, lon: 78.4867 }
-];
+// Delaunay variables and Ayanamsa
 
 // Delaunay variables and Ayanamsa
 export function getAyanamsa(jd) {

@@ -1,8 +1,128 @@
 import './style.css';
 import { translations } from './translations.js';
-import { calculateHoroscope, cities, signKeys, starKeys, getRasiSignIndex, getStarAndPada, calculateSubPeriods } from './astroCalculations.js';
+import { calculateHoroscope, signKeys, starKeys, getRasiSignIndex, getStarAndPada, calculateSubPeriods } from './astroCalculations.js';
 import { getPredictions } from './predictions.js';
-import heroImageUrl from './assets/hero.png';
+
+// Localized strings for Dasa search feature
+const dasaSearchTranslations = {
+    en: {
+        searchByDate: "Search Dasa by Date",
+        searchBtn: "Search",
+        activeDasaOn: "Active Dasa on",
+        invalidDate: "Please select a valid date.",
+        outOfRange: "Date is out of the 120-year Dasa timeline range."
+    },
+    ta: {
+        searchByDate: "தேதி வாரியாக தசா தேடல்",
+        searchBtn: "தேடு",
+        activeDasaOn: "குறிப்பிட்ட தேதியில் தற்போதைய தசா",
+        invalidDate: "தயவுசெய்து ஒரு சரியான தேதியைத் தேர்ந்தெடுக்கவும்.",
+        outOfRange: "தேதி 120 வருட தசா காலவரிசைக்கு அப்பாற்பட்டது."
+    },
+    hi: {
+        searchByDate: "दिनांक के अनुसार दशा खोजें",
+        searchBtn: "खोजें",
+        activeDasaOn: "को सक्रिय दशा",
+        invalidDate: "कृपया एक वैध दिनांक चुनें।",
+        outOfRange: "दिनांक 120-वर्षीय दशा कालक्रम सीमा से बाहर है।"
+    },
+    te: {
+        searchByDate: "తేదీ ద్వారా దశా శోధన",
+        searchBtn: "శోధించు",
+        activeDasaOn: "నాడు క్రియాశీల దశ",
+        invalidDate: "దయచేసి సరైన తేదీని ఎంచుకోండి.",
+        outOfRange: "తేదీ 120 సంవత్సరాల దశా కాలక్రమం వెలుపల ఉంది."
+    },
+    kn: {
+        searchByDate: "ದಿನಾಂಕದ ಮೂಲಕ ದಶಾ ಹುಡುಕಾಟ",
+        searchBtn: "ಹುಡುಕಿ",
+        activeDasaOn: "ರಂದು ಸಕ್ರಿಯ ದಶಾ",
+        invalidDate: "ದಯವಿಟ್ಟು ಮಾನ್ಯವಾದ ದಿನಾಂಕವನ್ನು ಆಯ್ಕೆಮಾಡಿ.",
+        outOfRange: "ದಿನಾಂಕವು 120 ವರ್ಷಗಳ ದಶ ಕಾಲಾವಧಿಯ ವ್ಯಾಪ್ತಿಯಿಂದ ಹೊರಗಿದೆ."
+    },
+    ml: {
+        searchByDate: "തീയതി അനുസരിച്ച് ദശ തിരയുക",
+        searchBtn: "തിരയുക",
+        activeDasaOn: "-ൽ സജീവമായ ദശ",
+        invalidDate: "ദയവായി സാധുവായ ഒരു തീയതി തിരഞ്ഞെടുക്കുക.",
+        outOfRange: "തീയതി 120 വർഷത്തെ ദശാ സമയപരിധിക്ക് പുറത്താണ്."
+    }
+};
+
+// Helper function to find active Dasa, Bhukti, Antara, and Sookshma at a specific date
+function findActiveDasaPathAtDate(targetDate, dasaTimeline, birthDateStr) {
+    // 1. Find Mahadasa (level 1)
+    const mahadasa = dasaTimeline.find(p => {
+        const start = new Date(p.start);
+        const end = new Date(p.end);
+        return targetDate >= start && targetDate < end;
+    });
+    if (!mahadasa) return null;
+    
+    // Normalize parent period for subperiod calculations
+    const mdObj = {
+        lord: mahadasa.lord,
+        start: new Date(mahadasa.start).toISOString(),
+        end: new Date(mahadasa.end).toISOString(),
+        duration: mahadasa.duration,
+        startAge: mahadasa.startAge,
+        endAge: mahadasa.endAge,
+        virtualStart: mahadasa.virtualStart ? new Date(mahadasa.virtualStart).toISOString() : undefined,
+        fullDuration: mahadasa.fullDuration
+    };
+    
+    // 2. Find Bhukti (level 2)
+    const bhuktis = calculateSubPeriods(mdObj, birthDateStr);
+    const bhukti = bhuktis.find(p => {
+        const start = new Date(p.start);
+        const end = new Date(p.end);
+        return targetDate >= start && targetDate < end;
+    });
+    if (!bhukti) return [mdObj];
+    
+    // 3. Find Antara (level 3)
+    const antaras = calculateSubPeriods(bhukti, birthDateStr);
+    const antara = antaras.find(p => {
+        const start = new Date(p.start);
+        const end = new Date(p.end);
+        return targetDate >= start && targetDate < end;
+    });
+    if (!antara) return [mdObj, bhukti];
+    
+    // 4. Find Sookshma (level 4)
+    const sookshmas = calculateSubPeriods(antara, birthDateStr);
+    const sookshma = sookshmas.find(p => {
+        const start = new Date(p.start);
+        const end = new Date(p.end);
+        return targetDate >= start && targetDate < end;
+    });
+    if (!sookshma) return [mdObj, bhukti, antara];
+    
+    return [mdObj, bhukti, antara, sookshma];
+}
+
+// Helper function to format geocoding result display name cleanly (removing full address info)
+const formatCleanPlaceLabel = (item) => {
+    const addr = item.address || {};
+    const placeName = addr.city || addr.town || addr.village || addr.municipality || addr.suburb || addr.hamlet || addr.locality || item.name || item.display_name.split(',')[0];
+    const postcode = addr.postcode || '';
+    const stateName = addr.state || addr.region || addr.county || addr.district || '';
+    const countryName = addr.country || '';
+
+    let placeStr = placeName;
+    if (postcode) {
+        placeStr += ` (${postcode})`;
+    }
+
+    let label = placeStr;
+    if (stateName && stateName !== placeName) {
+        label += `, ${stateName}`;
+    }
+    if (countryName && countryName !== stateName && countryName !== placeName) {
+        label += `, ${countryName}`;
+    }
+    return label;
+};
 
 // Helper function for local date formatting
 const formatDate = (date) => {
@@ -51,7 +171,8 @@ let state = {
     lang: 'ta', // 'ta' or 'en'
     view: 'form', // 'form' or 'results'
     horoscope: null,
-    selectedCity: { name: "Cuddalore", tamilName: "கடலூர்", lat: 11.7562, lon: 79.7669 }
+    selectedCity: null,
+    chartStyle: 'south'
 };
 
 if (savedState) {
@@ -64,6 +185,7 @@ if (savedState) {
         console.error("Failed to parse saved state", e);
     }
 }
+state.selectedCity = null; // Ensure birth place is blank on initial load/refresh
 
 // Persist Theme Preference
 const savedTheme = localStorage.getItem('horoscope_app_theme');
@@ -85,8 +207,12 @@ function init() {
 function render() {
     const t = translations[state.lang];
     
-    // Save state and theme on each render
-    localStorage.setItem('horoscope_app_state', JSON.stringify(state));
+    // Save only language and chart style preferences (not birth details history) to protect privacy
+    const stateToSave = {
+        lang: state.lang,
+        chartStyle: state.chartStyle
+    };
+    localStorage.setItem('horoscope_app_state', JSON.stringify(stateToSave));
     const isLight = document.body.classList.contains('light-mode');
     localStorage.setItem('horoscope_app_theme', isLight ? 'light' : 'dark');
     
@@ -98,11 +224,28 @@ function render() {
         content = renderResultsView(t);
     }
     
+    const logoSubtitles = {
+        en: 'Accurate Vedic Astrology Predictions',
+        ta: 'துல்லியமான வேத ஜோதிட கணிப்புகள்',
+        hi: 'सटीक वैदिक ज्योतिष भविष्यवाणियां',
+        te: 'ఖచ్చితమైన వేద జ్యోతిష్య అంచనాలు',
+        kn: 'ನಿಖರವಾದ ವೈದಿಕ ಜ್ಯೋತಿಷ್ಯ ಮುನ್ಸೂಚನೆಗಳು',
+        ml: 'കൃത്യമായ വേദ ജ്യോതിഷ പ്രവചനങ്ങൾ'
+    };
+    const footerTexts = {
+        en: 'Vedic Astrology Calculations. All Rights Reserved.',
+        ta: 'வேದ ஜோதிட கணிப்புகள். அனைத்து உரிమைகளும் பாதுகாக்கப்பட்டவை.',
+        hi: 'वैदिक ज्योतिष गणना। सर्वाधिकार सुरक्षित।',
+        te: 'వేద జ్యోతిష్య లెక్కలు. అన్ని హక్కులూ ప్రత్యేకించబడినవి.',
+        kn: 'ವೈದಿಕ ಜ್ಯೋತಿಷ್ಯ ಲೆಕ್ಕಾಚಾರಗಳು. ಎಲ್ಲ ಹಕ್ಕುಗಳನ್ನು ಕಾಯ್ದಿರಿಸಲಾಗಿದೆ.',
+        ml: 'വേദ ജ്യോതിഷ കണക്കുകൂട്ടലുകൾ. എല്ലാ അവകാശങ്ങളും നിക്ഷിപ്തം.'
+    };
+
     root.innerHTML = `
         <header>
             <div class="logo-container" id="header-logo" style="cursor: pointer;">
                 <h1>Online Horoscope Calculator</h1>
-                <p>${state.lang === 'ta' ? 'துல்லியமான வேத ஜோதிட கணிப்புகள்' : 'Accurate Vedic Astrology Predictions'}</p>
+                <p>${logoSubtitles[state.lang] || logoSubtitles['en']}</p>
             </div>
             <div style="display: flex; gap: 10px; align-items: center;">
                 <button class="lang-btn" id="toggle-theme-btn" style="width: 38px; height: 38px; border-radius: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center;" title="${isLight ? 'Dark Mode' : 'Light Mode'}">
@@ -111,16 +254,21 @@ function render() {
                         `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" stroke-linecap="round" stroke-linejoin="round"></path></svg>`
                     }
                 </button>
-                <button class="lang-btn" id="toggle-lang-btn">
-                    ${state.lang === 'ta' ? t.viewInEnglish : t.viewInTamil}
-                </button>
+                <select class="lang-btn" id="lang-select" style="cursor: pointer; padding: 0 10px; height: 38px;">
+                    <option value="en" ${state.lang === 'en' ? 'selected' : ''}>English</option>
+                    <option value="ta" ${state.lang === 'ta' ? 'selected' : ''}>தமிழ்</option>
+                    <option value="hi" ${state.lang === 'hi' ? 'selected' : ''}>हिन्दी</option>
+                    <option value="te" ${state.lang === 'te' ? 'selected' : ''}>తెలుగు</option>
+                    <option value="kn" ${state.lang === 'kn' ? 'selected' : ''}>ಕನ್ನಡ</option>
+                    <option value="ml" ${state.lang === 'ml' ? 'selected' : ''}>മലയാളം</option>
+                </select>
             </div>
         </header>
         <main>
             ${content}
         </main>
         <footer>
-            <p>© ${new Date().getFullYear()} ${state.lang === 'ta' ? 'தமிழ் ஜாதகம் - வேத ஜோதிட கணிப்புகள். அனைத்து உரிமைகளும் பாதுகாக்கப்பட்டவை.' : 'Tamil Horoscope - Vedic Astrology Calculations. All Rights Reserved.'}</p>
+            <p>© ${new Date().getFullYear()} ${footerTexts[state.lang] || footerTexts['en']}</p>
         </footer>
     `;
     
@@ -162,86 +310,84 @@ function renderFormView(t) {
     }
     
     return `
-        <div class="card card-split" id="form-card">
-            <div class="card-form-side">
-                <h2 class="card-title">${t.title}</h2>
-                <p class="card-subtitle">${t.subtitle}</p>
-                
-                <form id="horoscope-form" onsubmit="return false;">
-                    <div class="form-grid">
-                        <!-- Name -->
-                        <div class="form-group">
-                            <label for="input-name">${t.name} <span class="label-highlight">*</span></label>
-                            <input type="text" id="input-name" placeholder="${t.namePlaceholder}" required>
+        <div class="card" id="form-card" style="max-width: 680px; margin: 0 auto;">
+            <h2 class="card-title">${t.title}</h2>
+            <p class="card-subtitle">${t.subtitle}</p>
+            
+            <form id="horoscope-form" onsubmit="return false;">
+                <div class="form-grid">
+                    <!-- Name -->
+                    <div class="form-group">
+                        <label for="input-name">${t.name} <span class="label-highlight">*</span></label>
+                        <input type="text" id="input-name" placeholder="${t.namePlaceholder}" required>
+                    </div>
+                    
+                    <!-- Gender -->
+                    <div class="form-group">
+                        <label for="input-gender">${t.gender} <span class="label-highlight">*</span></label>
+                        <select id="input-gender" required>
+                            <option value="male" selected>${t.male}</option>
+                            <option value="female">${t.female}</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Birth Place -->
+                    <div class="form-group full-width autocomplete-container">
+                        <label for="input-place">${t.birthPlace} <span class="label-highlight">*</span></label>
+                        <div style="position: relative; display: flex; width: 100%;">
+                            <input type="text" id="input-place" placeholder="${t.birthPlacePlaceholder}" autocomplete="off" required style="padding-right: 40px;">
+                            <button type="button" id="clear-place-btn">✕</button>
                         </div>
-                        
-                        <!-- Gender -->
-                        <div class="form-group">
-                            <label for="input-gender">${t.gender} <span class="label-highlight">*</span></label>
-                            <select id="input-gender" required>
-                                <option value="male" selected>${t.male}</option>
-                                <option value="female">${t.female}</option>
+                        <ul class="suggestions-list" id="city-suggestions" style="display: none;"></ul>
+                    </div>
+                    
+                    <!-- Birth Date -->
+                    <div class="form-group full-width">
+                        <label>${t.birthDate} <span class="label-highlight">*</span></label>
+                        <div class="multi-select-grid">
+                            <select id="select-day" required>
+                                ${daysHtml}
+                            </select>
+                            <select id="select-month" required>
+                                ${monthsHtml}
+                            </select>
+                            <select id="select-year" required>
+                                ${yearsHtml}
                             </select>
                         </div>
-                        
-                        <!-- Birth Place -->
-                        <div class="form-group full-width autocomplete-container">
-                            <label for="input-place">${t.birthPlace} <span class="label-highlight">*</span></label>
-                            <input type="text" id="input-place" placeholder="${t.birthPlacePlaceholder}" autocomplete="off" required value="Cuddalore">
-                            <ul class="suggestions-list" id="city-suggestions" style="display: none;"></ul>
-                        </div>
-                        
-                        <!-- Birth Date -->
-                        <div class="form-group full-width">
-                            <label>${t.birthDate} <span class="label-highlight">*</span></label>
-                            <div class="multi-select-grid">
-                                <select id="select-day" required>
-                                    ${daysHtml}
-                                </select>
-                                <select id="select-month" required>
-                                    ${monthsHtml}
-                                </select>
-                                <select id="select-year" required>
-                                    ${yearsHtml}
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <!-- Birth Time -->
-                        <div class="form-group full-width">
-                            <label>${t.birthTime} <span class="label-highlight">*</span></label>
-                            <div class="multi-select-grid">
-                                <select id="select-hour" required>
-                                    ${hoursHtml}
-                                </select>
-                                <select id="select-minute" required>
-                                    ${minutesHtml}
-                                </select>
-                                <select id="select-ampm" required>
-                                    <option value="AM">AM</option>
-                                    <option value="PM" selected>PM</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <!-- Submit Button -->
-                        <div class="submit-btn-container">
-                            <button type="submit" class="submit-btn" id="submit-btn">
-                                <span>${t.calculateBtn}</span>
-                                <svg fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                    <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                                </svg>
-                            </button>
-                            <button type="button" class="btn-secondary" id="live-btn">
-                                <span>${state.lang === 'ta' ? 'இப்போதைய ஜாதகம் (Live)' : 'Live Horoscope'}</span>
-                            </button>
+                    </div>
+                    
+                    <!-- Birth Time -->
+                    <div class="form-group full-width">
+                        <label>${t.birthTime} <span class="label-highlight">*</span></label>
+                        <div class="multi-select-grid">
+                            <select id="select-hour" required>
+                                ${hoursHtml}
+                            </select>
+                            <select id="select-minute" required>
+                                ${minutesHtml}
+                            </select>
+                            <select id="select-ampm" required>
+                                <option value="AM">AM</option>
+                                <option value="PM" selected>PM</option>
+                            </select>
                         </div>
                     </div>
-                </form>
-            </div>
-            <div class="card-image-side">
-                <img src="${heroImageUrl}" alt="Aesthetic Cosmic Still Life" class="hero-image">
-            </div>
+                    
+                    <!-- Submit Button -->
+                    <div class="submit-btn-container">
+                        <button type="submit" class="submit-btn" id="submit-btn">
+                            <span>${t.calculateBtn}</span>
+                            <svg fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                            </svg>
+                        </button>
+                        <button type="button" class="btn-secondary" id="live-btn">
+                            <span>${state.lang === 'ta' ? 'இப்போதைய ஜாதகம் (Live)' : 'Live Horoscope'}</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
     `;
 }
@@ -250,6 +396,7 @@ function renderFormView(t) {
 function renderResultsView(t) {
     const data = state.horoscope;
     const details = data.birthDetails;
+    const dst = dasaSearchTranslations[state.lang] || dasaSearchTranslations['en'];
     
     // Get formatted Date-Time representation for the chart center
     const genderLabel = details.gender === 'male' ? `${t.male} / Male` : `${t.female} / Female`;
@@ -260,7 +407,7 @@ function renderResultsView(t) {
     
     const latDisplay = `Lat: ${details.lat.toFixed(4)} N`;
     const lonDisplay = `Lon: ${details.lon.toFixed(4)} E`;
-    const cityText = `${details.city}, Tamil Nadu, India`;
+    const cityText = details.city;
     
     // Star details
     const moonStarTamilName = t.stars[data.panchang.starIdx];
@@ -268,8 +415,12 @@ function renderResultsView(t) {
     const starPadaText = state.lang === 'ta' ? `${moonStarTamilName}-${data.panchang.pada}` : `${moonStarEnglishName}-${data.panchang.pada}`;
     
     // Generate charts
-    const rasiGridHtml = renderChartGrid(data.planets, false, t, starPadaText, genderLabel, dtDisplay, latDisplay, lonDisplay, cityText);
-    const navamsamGridHtml = renderChartGrid(data.planets, true, t, starPadaText, genderLabel, dtDisplay, latDisplay, lonDisplay, cityText);
+    const rasiGridHtml = state.chartStyle === 'north'
+        ? renderNorthChartGrid(data.planets, false, t)
+        : renderChartGrid(data.planets, false, t, starPadaText, genderLabel, dtDisplay, latDisplay, lonDisplay, cityText);
+    const navamsamGridHtml = state.chartStyle === 'north'
+        ? renderNorthChartGrid(data.planets, true, t)
+        : renderChartGrid(data.planets, true, t, starPadaText, genderLabel, dtDisplay, latDisplay, lonDisplay, cityText);
     
     // Planet detail rows
     let tableRows = '';
@@ -404,21 +555,28 @@ function renderResultsView(t) {
             </div>
             <!-- Charts Grid (Rasi & Navamsam side-by-side) -->
             <div class="card">
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+                    <button class="lang-btn" id="toggle-chart-style-btn" style="padding: 6px 12px; font-size: 13px;">
+                        ${state.chartStyle === 'north' ? t.actions.toggleSouthStyle : t.actions.toggleNorthStyle}
+                    </button>
+                </div>
                 <div class="charts-grid-wrapper">
                     <!-- Rasi Chart -->
                     <div class="chart-box">
                         <div class="chart-title-header">${state.lang === 'ta' ? 'இராசி கட்டம் (Rasi Chart)' : 'Rasi Chart (D-1)'}</div>
-                        <div class="chart-grid rasi-theme">
-                            ${rasiGridHtml}
-                        </div>
+                        ${state.chartStyle === 'north'
+                            ? rasiGridHtml
+                            : `<div class="chart-grid rasi-theme">${rasiGridHtml}</div>`
+                        }
                     </div>
                     
                     <!-- Navamsam Chart -->
                     <div class="chart-box">
                         <div class="chart-title-header">${state.lang === 'ta' ? 'நவாம்சம் கட்டம் (Navamsam Chart)' : 'Navamsam Chart (D-9)'}</div>
-                        <div class="chart-grid nav-theme">
-                            ${navamsamGridHtml}
-                        </div>
+                        ${state.chartStyle === 'north'
+                            ? navamsamGridHtml
+                            : `<div class="chart-grid nav-theme">${navamsamGridHtml}</div>`
+                        }
                     </div>
                 </div>
                 <div class="kocharam-label">
@@ -460,6 +618,26 @@ function renderResultsView(t) {
             <!-- Vimshottari Dasa Timeline -->
             <div class="card">
                 <h2 class="card-title" style="text-align: left; margin-bottom: 20px;">${t.dasa.title}</h2>
+                
+                <!-- Dasa Search Widget -->
+                <div class="dasa-search-widget" style="margin-bottom: 25px; padding: 20px; background: rgba(0, 0, 0, 0.05); border: 1px solid var(--card-border); display: flex; flex-direction: column; gap: 15px;">
+                    <div style="font-weight: 600; font-size: 15px; color: var(--accent);">
+                        ${dst.searchByDate}
+                    </div>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                        <input type="date" id="dasa-search-input" style="max-width: 250px; height: 42px; padding: 8px 12px; border-radius: 0;">
+                        <button class="btn-primary" id="dasa-search-submit-btn" style="padding: 10px 24px; font-size: 14px; height: 42px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                            <span>${dst.searchBtn}</span>
+                        </button>
+                    </div>
+                    <div id="dasa-search-results-box" style="display: none; padding: 15px; background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--card-border); border-radius: 0;">
+                        <!-- Result breadcrumb path goes here -->
+                    </div>
+                </div>
+                
                 <div class="table-container">
                     <table>
                         <thead>
@@ -498,6 +676,58 @@ function renderResultsView(t) {
 // Row 2: Aquarius(10), Center, Center, Cancer(3)
 // Row 3: Capricorn(9), Center, Center, Leo(4)
 // Row 4: Sagittarius(8), Scorpio(7), Libra(6), Virgo(5)
+// Render North Indian style chart using SVG
+function renderNorthChartGrid(planets, isNavamsam, t) {
+    const lagnaPlanet = planets.find(p => p.name === 'Lagna');
+    const lagnaSignIdx = lagnaPlanet ? (isNavamsam ? lagnaPlanet.navamsamIdx : lagnaPlanet.rasiIdx) : 0;
+    
+    const houseConfigs = [
+        { houseNum: 1,  rx: 200, ry: 75,  px: 200, py: 120 },
+        { houseNum: 2,  rx: 130, ry: 45,  px: 85,  py: 30 },
+        { houseNum: 3,  rx: 45,  ry: 130, px: 30,  py: 85 },
+        { houseNum: 4,  rx: 125, ry: 200, px: 75,  py: 200 },
+        { houseNum: 5,  rx: 45,  ry: 270, px: 30,  py: 315 },
+        { houseNum: 6,  rx: 130, ry: 355, px: 85,  py: 370 },
+        { houseNum: 7,  rx: 200, ry: 325, px: 200, py: 280 },
+        { houseNum: 8,  rx: 270, ry: 355, px: 315, py: 370 },
+        { houseNum: 9,  rx: 355, ry: 270, px: 370, py: 315 },
+        { houseNum: 10, rx: 275, ry: 200, px: 325, py: 200 },
+        { houseNum: 11, rx: 355, ry: 130, px: 370, py: 85 },
+        { houseNum: 12, rx: 270, ry: 45,  px: 315, py: 30 }
+    ];
+    
+    let textElements = '';
+    
+    houseConfigs.forEach(cfg => {
+        const signIdx = (lagnaSignIdx + cfg.houseNum - 1) % 12;
+        const rashiNumber = signIdx + 1;
+        
+        const matchingPlanets = planets.filter(p => {
+            const sign = isNavamsam ? p.navamsamIdx : p.rasiIdx;
+            return sign === signIdx;
+        });
+        
+        const planetList = matchingPlanets.map(p => t.planetsShort[p.name]).join(' ');
+        
+        textElements += `
+            <text x="${cfg.rx}" y="${cfg.ry}" class="north-rashi-num">${rashiNumber}</text>
+            <text x="${cfg.px}" y="${cfg.py}" class="north-planet-list">${planetList}</text>
+        `;
+    });
+    
+    const themeClass = isNavamsam ? 'nav-theme' : 'rasi-theme';
+    
+    return `
+        <svg viewBox="0 0 400 400" class="north-chart-svg ${themeClass}">
+            <rect x="2" y="2" width="396" height="396" class="chart-outer-rect" />
+            <line x1="2" y1="2" x2="398" y2="398" class="chart-line" />
+            <line x1="398" y1="2" x2="2" y2="398" class="chart-line" />
+            <polygon points="200,2 398,200 200,398 2,200" class="chart-polygon" />
+            ${textElements}
+        </svg>
+    `;
+}
+
 function renderChartGrid(planets, isNavamsam, t, starPada, gender, datetime, lat, lon, city) {
     const layout = [
         { signIdx: 11, row: 1, col: 1 }, // Pisces
@@ -661,11 +891,11 @@ function bindEvents() {
         });
     }
 
-    // 1. Language Toggle
-    const toggleLangBtn = document.querySelector('#toggle-lang-btn');
-    if (toggleLangBtn) {
-        toggleLangBtn.addEventListener('click', () => {
-            state.lang = state.lang === 'ta' ? 'en' : 'ta';
+    // 1. Language Selection Dropdown
+    const langSelect = document.querySelector('#lang-select');
+    if (langSelect) {
+        langSelect.addEventListener('change', (e) => {
+            state.lang = e.target.value;
             render();
         });
     }
@@ -686,9 +916,10 @@ function bindEvents() {
         const suggestionsList = document.querySelector('#city-suggestions');
         
         // Autocomplete search
+        let debounceTimer;
         if (placeInput && suggestionsList) {
             placeInput.addEventListener('input', (e) => {
-                const query = e.target.value.toLowerCase().trim();
+                const query = e.target.value.trim();
                 suggestionsList.innerHTML = '';
                 
                 if (query.length < 2) {
@@ -696,31 +927,88 @@ function bindEvents() {
                     return;
                 }
                 
-                const filtered = cities.filter(c => 
-                    c.name.toLowerCase().includes(query) || 
-                    c.tamilName.includes(query)
-                );
+                suggestionsList.innerHTML = '';
                 
-                if (filtered.length > 0) {
-                    filtered.forEach(city => {
-                        const li = document.createElement('li');
-                        li.textContent = state.lang === 'ta' ? `${city.tamilName} (${city.name})` : `${city.name} (${city.tamilName})`;
-                        li.addEventListener('click', () => {
-                            placeInput.value = state.lang === 'ta' ? city.tamilName : city.name;
-                            state.selectedCity = city;
-                            suggestionsList.style.display = 'none';
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=25&addressdetails=1`)
+                        .then(res => res.json())
+                        .then(data => {
+                            // If user cleared query in the meantime
+                            if (placeInput.value.trim().length < 2) {
+                                suggestionsList.innerHTML = '';
+                                suggestionsList.style.display = 'none';
+                                return;
+                            }
+                            
+                            const itemsToShow = [];
+                            
+                            // Add Nominatim results
+                            if (data && data.length > 0) {
+                                // Filter Nominatim results to include all actual places (cities, towns, villages, hamlets, administrative divisions, etc.)
+                                const placeFiltered = data.filter(item => {
+                                    const isExcluded = ['highway', 'shop', 'tourism', 'amenity', 'leisure', 'office', 'aeroway', 'historic', 'railway', 'man_made'].includes(item.class);
+                                    return !isExcluded;
+                                });
+
+                                placeFiltered.slice(0, 10).forEach(item => {
+                                    const cleanLabel = formatCleanPlaceLabel(item);
+                                    itemsToShow.push({
+                                        isApi: true,
+                                        label: cleanLabel,
+                                        cityData: {
+                                            name: cleanLabel,
+                                            tamilName: cleanLabel,
+                                            lat: parseFloat(item.lat),
+                                            lon: parseFloat(item.lon)
+                                        }
+                                    });
+                                });
+                            }
+                            
+                            // If API has items, clear local preview and show API results
+                            if (itemsToShow.length > 0) {
+                                suggestionsList.innerHTML = '';
+                                itemsToShow.forEach(item => {
+                                    const li = document.createElement('li');
+                                    li.textContent = item.label;
+                                    li.addEventListener('click', () => {
+                                        placeInput.value = item.label;
+                                        state.selectedCity = item.cityData;
+                                        suggestionsList.style.display = 'none';
+                                    });
+                                    suggestionsList.appendChild(li);
+                                });
+                                suggestionsList.style.display = 'block';
+                            }
+                        })
+                        .catch(err => {
+                            console.error("Nominatim API lookup failed", err);
+                            // Fallback local results are already displaying instantly.
                         });
-                        suggestionsList.appendChild(li);
-                    });
-                    suggestionsList.style.display = 'block';
-                } else {
-                    suggestionsList.style.display = 'none';
-                }
+                }, 500);
             });
+            
+            // Clear input button handler
+            const clearPlaceBtn = document.querySelector('#clear-place-btn');
+            if (clearPlaceBtn && placeInput) {
+                const toggleClearBtn = () => {
+                    clearPlaceBtn.style.display = placeInput.value.trim() !== '' ? 'flex' : 'none';
+                };
+                placeInput.addEventListener('input', toggleClearBtn);
+                clearPlaceBtn.addEventListener('click', () => {
+                    placeInput.value = '';
+                    state.selectedCity = null;
+                    suggestionsList.style.display = 'none';
+                    clearPlaceBtn.style.display = 'none';
+                    placeInput.focus();
+                });
+                toggleClearBtn();
+            }
             
             // Hide list on click outside
             document.addEventListener('click', (e) => {
-                if (e.target !== placeInput && e.target !== suggestionsList) {
+                if (e.target !== placeInput && e.target !== suggestionsList && e.target !== clearPlaceBtn) {
                     suggestionsList.style.display = 'none';
                 }
             });
@@ -745,18 +1033,14 @@ function bindEvents() {
                 const time24Str = `${hour.toString().padStart(2, '0')}:${minute}:00`;
                 
                 const place = placeInput ? placeInput.value : '';
-                let lat = state.selectedCity.lat;
-                let lon = state.selectedCity.lon;
-                let finalCityName = state.selectedCity.name;
+                const lat = state.selectedCity ? state.selectedCity.lat : null;
+                const lon = state.selectedCity ? state.selectedCity.lon : null;
+                const finalCityName = state.selectedCity ? state.selectedCity.name : '';
                 
-                const matchedCity = cities.find(c => 
-                    c.name.toLowerCase() === place.toLowerCase() || 
-                    c.tamilName === place
-                );
-                if (matchedCity) {
-                    lat = matchedCity.lat;
-                    lon = matchedCity.lon;
-                    finalCityName = matchedCity.name;
+                if (!lat || !lon) {
+                    alert(state.lang === 'ta' ? 'தயவுசெய்து பட்டியலிலிருந்து ஒரு செல்லுபடியாகும் பிறந்த இடத்தை தேர்ந்தெடுக்கவும்.' : 'Please select a valid birth place from the list.');
+                    if (placeInput) placeInput.focus();
+                    return;
                 }
                 
                 const name = state.lang === 'ta' ? 'இப்போதைய ஜாதகம் (Live)' : 'Live Horoscope';
@@ -809,18 +1093,14 @@ function bindEvents() {
                 const dateIsoStr = `${year}-${month}-${day}`;
                 
                 // Retrieve coordinates: check if typed name matches preloaded city, otherwise fallback to selectedCity
-                let lat = state.selectedCity.lat;
-                let lon = state.selectedCity.lon;
-                let finalCityName = state.selectedCity.name;
+                const lat = state.selectedCity ? state.selectedCity.lat : null;
+                const lon = state.selectedCity ? state.selectedCity.lon : null;
+                const finalCityName = state.selectedCity ? state.selectedCity.name : '';
                 
-                const matchedCity = cities.find(c => 
-                    c.name.toLowerCase() === place.toLowerCase() || 
-                    c.tamilName === place
-                );
-                if (matchedCity) {
-                    lat = matchedCity.lat;
-                    lon = matchedCity.lon;
-                    finalCityName = matchedCity.name;
+                if (!lat || !lon) {
+                    alert(state.lang === 'ta' ? 'தயவுசெய்து பட்டியலிலிருந்து ஒரு செல்லுபடியாகும் பிறந்த இடத்தை தேர்ந்தெடுக்கவும்.' : 'Please select a valid birth place from the list.');
+                    if (placeInput) placeInput.focus();
+                    return;
                 }
                 
                 // Calculate
@@ -869,6 +1149,15 @@ function bindEvents() {
         if (printBtn) {
             printBtn.addEventListener('click', () => {
                 window.print();
+            });
+        }
+        
+        // Toggle Chart Style Button
+        const toggleChartStyleBtn = document.querySelector('#toggle-chart-style-btn');
+        if (toggleChartStyleBtn) {
+            toggleChartStyleBtn.addEventListener('click', () => {
+                state.chartStyle = state.chartStyle === 'north' ? 'south' : 'north';
+                render();
             });
         }
 
@@ -1000,6 +1289,77 @@ function bindEvents() {
                         toggleIcon.innerHTML = '&#9662;'; // ▾
                     }
                 }
+            });
+        }
+
+        // Dasa Search event listener
+        const dasaSearchBtn = document.querySelector('#dasa-search-submit-btn');
+        const dasaSearchInput = document.querySelector('#dasa-search-input');
+        const dasaSearchResultsBox = document.querySelector('#dasa-search-results-box');
+        
+        if (dasaSearchBtn && dasaSearchInput && dasaSearchResultsBox) {
+            dasaSearchBtn.addEventListener('click', () => {
+                const targetDateVal = dasaSearchInput.value;
+                const dst = dasaSearchTranslations[state.lang] || dasaSearchTranslations['en'];
+                if (!targetDateVal) {
+                    alert(dst.invalidDate);
+                    return;
+                }
+                
+                const targetDate = new Date(targetDateVal + 'T00:00:00');
+                const birthDateStr = state.horoscope.birthDetails.dateStr + 'T' + state.horoscope.birthDetails.timeStr;
+                const birthDate = new Date(birthDateStr);
+                const timelineEnd = new Date(state.horoscope.dasaTimeline[state.horoscope.dasaTimeline.length - 1].end);
+                
+                if (targetDate < new Date(state.horoscope.birthDetails.dateStr + 'T00:00:00')) {
+                    dasaSearchResultsBox.style.display = 'block';
+                    dasaSearchResultsBox.innerHTML = `<span style="color: #ef4444; font-weight: 600;">${
+                        state.lang === 'ta' ? 'தேதி பிறந்த தேதிக்கு முந்தையது!' : 'Selected date is before the birth date!'
+                    }</span>`;
+                    return;
+                }
+                
+                if (targetDate > timelineEnd) {
+                    dasaSearchResultsBox.style.display = 'block';
+                    dasaSearchResultsBox.innerHTML = `<span style="color: #ef4444; font-weight: 600;">${dst.outOfRange}</span>`;
+                    return;
+                }
+                
+                const path = findActiveDasaPathAtDate(targetDate, state.horoscope.dasaTimeline, birthDateStr);
+                if (!path || path.length === 0) {
+                    dasaSearchResultsBox.style.display = 'block';
+                    dasaSearchResultsBox.innerHTML = `<span style="color: #ef4444; font-weight: 600;">${dst.outOfRange}</span>`;
+                    return;
+                }
+                
+                // Format active Dasa path display
+                const t = translations[state.lang];
+                let pathHtml = `<div style="margin-bottom: 8px; font-weight: 600;">${dst.activeDasaOn} ${formatDate(targetDate)}:</div>`;
+                pathHtml += `<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15px;">`;
+                
+                const levelNames = [t.dasa.mahadasa, t.dasa.bhukti, t.dasa.antara, t.dasa.sookshma];
+                const colors = ['#ca8a04', '#ea580c', '#3b82f6', '#10b981'];
+                
+                path.forEach((period, idx) => {
+                    const lordTamilName = t.planets[period.lord] || period.lord;
+                    const lordEnglishName = translations['en'].planets[period.lord] || period.lord;
+                    const lordDisplay = state.lang === 'ta' ? `${lordTamilName} (${lordEnglishName})` : lordEnglishName;
+                    
+                    if (idx > 0) {
+                        pathHtml += `<span style="color: var(--text-secondary); font-weight: bold;">➔</span>`;
+                    }
+                    
+                    pathHtml += `
+                        <div style="background: var(--input-bg); border: 1px solid var(--card-border); padding: 6px 12px; display: inline-flex; flex-direction: column; align-items: center;">
+                            <span style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">${levelNames[idx]}</span>
+                            <span style="font-weight: 700; color: ${colors[idx] || 'var(--text-primary)'};">${lordDisplay}</span>
+                        </div>
+                    `;
+                });
+                
+                pathHtml += `</div>`;
+                dasaSearchResultsBox.style.display = 'block';
+                dasaSearchResultsBox.innerHTML = pathHtml;
             });
         }
     }

@@ -5,6 +5,8 @@
     --primary-hover: #eab308;
     --accent: #ea580c; /* Vibrant Terracotta/Copper */
     --bg-gradient: linear-gradient(135deg, #0e0c0a 0%, #171410 100%); /* Deep warm charcoal/bronze */
+    --bg-image: linear-gradient(rgba(14, 12, 10, 0.55), rgba(23, 20, 16, 0.75)), url('./assets/bg.jpg');
+    --bg-color: #0e0c0a;
     --card-bg: #1f1b16; /* Warm deep slate/chocolate in dark mode */
     --card-border: rgba(202, 138, 4, 0.15); /* Gold border glow */
     --card-text-primary: #fdfdfd; 
@@ -35,6 +37,8 @@
 
 body.light-mode {
     --bg-gradient: linear-gradient(135deg, #fafaf9 0%, #e7e5e4 100%); /* Soft warm light stone */
+    --bg-image: linear-gradient(rgba(250, 250, 249, 0.80), rgba(231, 229, 228, 0.86)), url('./assets/bg.jpg');
+    --bg-color: #fafaf9;
     --card-bg: #ffffff;
     --card-border: #d6d3d1;
     --card-text-primary: #1c1917;
@@ -103,7 +107,12 @@ body {
     margin: 0;
     padding: 0;
     font-family: var(--font-sans);
-    background: var(--bg-gradient);
+    background-image: var(--bg-image);
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-repeat: no-repeat;
+    background-color: var(--bg-color);
     color: var(--text-primary);
     min-height: 100vh;
     display: flex;
@@ -1131,4 +1140,106 @@ body.light-mode .dasa-row-l2:hover td, body.light-mode .dasa-row-l3:hover td, bo
         background: transparent !important;
         color: black !important;
     }
+}
+
+/* North Indian Chart SVG Styles */
+.north-chart-svg {
+    width: 100%;
+    aspect-ratio: 1;
+    max-width: 460px;
+    box-sizing: border-box;
+    border-radius: 0 !important;
+    overflow: visible;
+}
+
+.north-chart-svg.rasi-theme {
+    box-shadow: 0 15px 35px rgba(217, 119, 6, 0.18);
+}
+
+.north-chart-svg.nav-theme {
+    box-shadow: 0 15px 35px rgba(234, 88, 12, 0.15);
+}
+
+.chart-outer-rect {
+    fill: var(--chart-bg);
+    stroke: var(--border-color);
+    stroke-width: 2.5;
+}
+
+.chart-line {
+    stroke: var(--border-color);
+    stroke-width: 1.5;
+}
+
+.chart-polygon {
+    fill: none;
+    stroke: var(--border-color);
+    stroke-width: 1.5;
+}
+
+.north-rashi-num {
+    font-size: 13px;
+    font-weight: 700;
+    fill: var(--accent);
+    text-anchor: middle;
+    dominant-baseline: middle;
+    font-family: var(--font-sans);
+}
+
+body.light-mode .north-rashi-num {
+    fill: var(--accent);
+}
+
+.north-planet-list {
+    font-size: 12px;
+    font-weight: 700;
+    fill: var(--text-color);
+    text-anchor: middle;
+    dominant-baseline: middle;
+    font-family: var(--font-tamil);
+}
+
+@media print {
+    .north-chart-svg {
+        max-width: 320px !important;
+        box-shadow: none !important;
+    }
+    
+    .chart-outer-rect {
+        fill: white !important;
+        stroke: black !important;
+    }
+    
+    .chart-line, .chart-polygon {
+        stroke: black !important;
+    }
+    
+    .north-rashi-num, .north-planet-list {
+        fill: black !important;
+    }
+}
+
+/* Clear Place Button Style */
+#clear-place-btn {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: none;
+    padding: 4px;
+    font-size: 16px;
+    font-weight: bold;
+    line-height: 1;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    z-index: 10;
+}
+
+#clear-place-btn:hover {
+    color: var(--accent);
 }
