@@ -505,6 +505,31 @@ body:not(.light-mode) .nav-theme {
     background: rgba(255, 255, 255, 0.3);
 }
 
+/* Lagna block highlight */
+.rasi-theme .chart-cell.lagna-highlight {
+    background: rgba(217, 119, 6, 0.15);
+}
+
+.nav-theme .chart-cell.lagna-highlight {
+    background: rgba(234, 88, 12, 0.15);
+}
+
+body:not(.light-mode) .rasi-theme .chart-cell.lagna-highlight {
+    background: rgba(251, 191, 36, 0.2);
+}
+
+body:not(.light-mode) .nav-theme .chart-cell.lagna-highlight {
+    background: rgba(234, 88, 12, 0.2);
+}
+
+.chart-cell.lagna-highlight:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+body:not(.light-mode) .chart-cell.lagna-highlight:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
 .cell-house-num {
     position: absolute;
     top: 4px;
@@ -540,14 +565,6 @@ body:not(.light-mode) .nav-theme {
     padding: 2px 4px;
 }
 
-.cell-lagna-indicator {
-    border-left: 8px solid transparent;
-    border-right: 8px solid transparent;
-    border-bottom: 8px solid #ea580c;
-    position: absolute;
-    top: 4px;
-    left: 4px;
-}
 
 .chart-center-cell {
     grid-row: 2 / 4;

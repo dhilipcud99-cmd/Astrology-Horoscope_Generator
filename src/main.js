@@ -777,11 +777,6 @@ function renderChartGrid(planets, isNavamsam, t, starPada, gender, datetime, lat
             planetListHtml += `<div class="cell-planet-item">${pShort}</div>`;
         });
         
-        // Lagna indicator (orange triangle in top-left corner)
-        // Draw if this cell matches the Lagna sign
-        const isLagnaCell = cell.signIdx === lagnaSignIdx;
-        const lagnaIndicatorHtml = isLagnaCell ? `<div class="cell-lagna-indicator"></div>` : '';
-        
         // House numbers (relative to Lagna, clockwise starting from Lagna = 1)
         // Only display house numbers on the Rasi chart
         let houseNumHtml = '';
@@ -793,9 +788,11 @@ function renderChartGrid(planets, isNavamsam, t, starPada, gender, datetime, lat
         // Styles for layout grid placement
         const style = `grid-row: ${cell.row}; grid-column: ${cell.col};`;
         
+        const isLagnaCell = cell.signIdx === lagnaSignIdx;
+        const cellClass = isLagnaCell ? 'chart-cell lagna-highlight' : 'chart-cell';
+        
         cellsHtml += `
-            <div class="chart-cell" style="${style}">
-                ${lagnaIndicatorHtml}
+            <div class="${cellClass}" style="${style}">
                 ${houseNumHtml}
                 ${degreeLabelHtml}
                 <div class="cell-planets-list">
