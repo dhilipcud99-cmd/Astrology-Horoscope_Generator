@@ -405,8 +405,10 @@ function renderResultsView(t) {
     const formattedDate = details.dateStr.split('-').reverse().join('-');
     const dtDisplay = `${formattedDate} - ${birthTimeDisplay}`;
     
-    const latDisplay = `Lat: ${details.lat.toFixed(4)} N`;
-    const lonDisplay = `Lon: ${details.lon.toFixed(4)} E`;
+    const latDirectionText = details.lat >= 0 ? 'N' : 'S';
+    const lonDirectionText = details.lon >= 0 ? 'E' : 'W';
+    const latDisplay = `Lat: ${Math.abs(details.lat).toFixed(2)} ${latDirectionText}`;
+    const lonDisplay = `Lon: ${Math.abs(details.lon).toFixed(2)} ${lonDirectionText}`;
     const cityText = details.city;
     
     // Star details
@@ -414,7 +416,7 @@ function renderResultsView(t) {
     const moonStarEnglishName = translations['en'].stars[data.panchang.starIdx];
     const starPadaText = state.lang === 'ta' ? `${moonStarTamilName}-${data.panchang.pada}` : `${moonStarEnglishName}-${data.panchang.pada}`;
     
-    // Generate charts
+    // Generate charts for screen
     const rasiGridHtml = state.chartStyle === 'north'
         ? renderNorthChartGrid(data.planets, false, t)
         : renderChartGrid(data.planets, false, t, starPadaText, genderLabel, dtDisplay, latDisplay, lonDisplay, cityText);
@@ -435,11 +437,15 @@ function renderResultsView(t) {
         const starTamil = t.stars[p.starIdx];
         const starEnglish = translations['en'].stars[p.starIdx];
         
+        const isRetro = p.isRetro && p.name !== 'Lagna' && p.name !== 'Mandi';
+        const pDisplayTamil = pTamilName + (isRetro ? ' (வ)' : '');
+        const pDisplayEnglish = pEnglishName + (isRetro ? ' (R)' : '');
+        
         tableRows += `
             <tr>
                 <td>
-                    <div class="planet-tamil-name">${pTamilName}</div>
-                    <div class="planet-english-name">${pEnglishName}</div>
+                    <div class="planet-tamil-name">${pDisplayTamil}</div>
+                    <div class="planet-english-name">${pDisplayEnglish}</div>
                 </td>
                 <td>
                     <div style="font-weight: 600;">${(p.longitude % 30).toFixed(2)}°</div>
@@ -543,8 +549,221 @@ function renderResultsView(t) {
         `;
     });
     
+    // --- PRINT CALCULATIONS & HTML GENERATION ---
+    const birthDateObj = new Date(details.dateStr + 'T' + details.timeStr);
+    
+    // 1. Timezone offset string
+    const tzOffsetMinutesVal = -birthDateObj.getTimezoneOffset();
+    const offsetHr = Math.floor(Math.abs(tzOffsetMinutesVal) / 60);
+    const offsetMin = Math.abs(tzOffsetMinutesVal) % 60;
+    const offsetSignSymbol = tzOffsetMinutesVal >= 0 ? '+' : '-';
+    const timezoneOffsetStr = `${offsetSignSymbol}${offsetHr}.${offsetMin.toString().padStart(2, '0')} GMT`;
+    
+    // 2. Tamil Date (Calculated from Sun's absolute longitude)
+    const sunPlanet = data.planets.find(p => p.name === 'Sun');
+    const sunLonVal = sunPlanet ? sunPlanet.longitude : 0;
+    const sunSignIdx = Math.floor(sunLonVal / 30);
+    const tamilMonths = ["சித்திரை", "வைகாசி", "ஆனி", "ஆடி", "ஆவணி", "புரட்டாசி", "ஐப்பசி", "கார்த்திகை", "மார்கழி", "தை", "மாசி", "பங்குனி"];
+    const tamilMonthName = tamilMonths[sunSignIdx];
+    const tamilDate = Math.floor(sunLonVal % 30) + 1;
+    
+    let yearCE = birthDateObj.getFullYear();
+    const monthVal = birthDateObj.getMonth();
+    const dateVal = birthDateObj.getDate();
+    if (monthVal < 3 || (monthVal === 3 && dateVal < 14)) {
+        yearCE--;
+    }
+    const tamilYears = [
+        "பிரபவ", "விபவ", "சுக்ல", "பிரமோதூத", "பிரசோற்பத்தி", "ஆங்கீரச", "ஸ்ரீமுக", "பவ", "யுவ", "தாது",
+        "ஈஸ்வர", "பகுதானிய", "பிரமாதி", "விக்ரம", "விஷு", "சித்திரபானு", "சுபானு", "தாரண", "பார்த்திப", "விய",
+        "சர்வஜித்", "சர்வதாரி", "விரோதி", "விக்ருதி", "கர", "நந்தன", "விஜய", "ஜய", "மன்மத", "துன்முகி",
+        "ஹேவிளம்பி", "விளம்பி", "விகாரி", "சார்வரி", "பிலவ", "சுபகிருது", "சோபகிருது", "குரோதி", "விசுவாசுவ", "பரபாவ",
+        "பிலவங்க", "கீலக", "சௌமிய", "சாதாரண", "விரோதகிருது", "பரிதாபி", "பிரமாதீச", "ஆனந்த", "ராட்சஸ", "நள",
+        "பிங்கள", "காளயுக்தி", "சித்தார்த்தி", "ரௌத்திரி", "துன்மதி", "துந்துபி", "ருத்ரோத்காரி", "ரக்தாட்சி", "குரோதன", "அக்ஷய"
+    ];
+    const tamilYearIdx = (yearCE - 1987 + 60) % 60;
+    const tamilYearName = tamilYears[tamilYearIdx];
+    const kaliYugaYear = yearCE + 3101;
+    const tamilDateStr = `${tamilMonthName}-மீ ${tamilDate}-உ -${tamilYearName} வரு, கலி-${kaliYugaYear}`;
+    
+    // 3. Day of week in Tamil or English
+    const tamilWeekdays = ["ஞாயிற்றுக்கிழமை", "திங்கட்கிழமை", "செவ்வாய்க்கிழமை", "புதன்கிழமை", "வியாழக்கிழமை", "வெள்ளிக்கிழமை", "சனிக்கிழமை"];
+    const englishWeekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const sunriseDate = new Date(data.panchang.sunrise);
+    const sunsetDate = new Date(data.panchang.sunset);
+    
+    let birthDayIdx = birthDateObj.getDay();
+    if (birthDateObj < sunriseDate) {
+        birthDayIdx = (birthDayIdx + 6) % 7;
+    }
+    const dayNameStr = state.lang === 'ta' ? tamilWeekdays[birthDayIdx] : englishWeekdays[birthDayIdx];
+    
+    // 4. Coordinates formatted
+    const latDir = details.lat >= 0 ? 'N' : 'S';
+    const lonDir = details.lon >= 0 ? 'E' : 'W';
+    const latDisplayVal = `${Math.abs(details.lat).toFixed(2)} ${latDir}`;
+    const lonDisplayVal = `${Math.abs(details.lon).toFixed(2)} ${lonDir}`;
+    
+    // 5. Sunrise and Sunset times formatted
+    const formatTimeHM = (d) => {
+        const h = d.getHours().toString().padStart(2, '0');
+        const m = d.getMinutes().toString().padStart(2, '0');
+        return `${h}:${m}`;
+    };
+    const sunriseHM = formatTimeHM(sunriseDate);
+    const sunsetHM = formatTimeHM(sunsetDate);
+    
+    // 6. Dinamana (Ahas)
+    const ahasMs = sunsetDate.getTime() - sunriseDate.getTime();
+    const ahasHours = ahasMs / (3600 * 1000);
+    const ahasNaazhigai = ahasHours * 2.5;
+    const ahasN = Math.floor(ahasNaazhigai);
+    const ahasV = Math.floor((ahasNaazhigai - ahasN) * 60);
+    const ahasDisplay = `${ahasN}:${ahasV.toString().padStart(2, '0')} நா.வி`;
+    
+    const sunriseTamilTime = "59:50 நா.வி";
+    const sunsetTamilTime = `${ahasN}:${(ahasV + 10).toString().padStart(2, '0')} நா.வி`;
+    
+    // 7. Udayadhi Naazhigai & Tamil Time
+    let referenceSunrise = sunriseDate;
+    if (birthDateObj < sunriseDate) {
+        referenceSunrise = new Date(sunriseDate.getTime() - 24 * 3600 * 1000);
+    }
+    const elapsedMs = birthDateObj.getTime() - referenceSunrise.getTime();
+    const elapsedHours = elapsedMs / (3600 * 1000);
+    const udayadhiNaazhigai = elapsedHours * 2.5;
+    const udayadhiN = Math.floor(udayadhiNaazhigai);
+    const udayadhiV = Math.floor((udayadhiNaazhigai - udayadhiN) * 60);
+    const udayadhiDisplay = `${udayadhiN}:${udayadhiV.toString().padStart(2, '0')} நா.வி (${elapsedHours.toFixed(2)} மணி)`;
+    const tamilTimeDisplay = `${udayadhiN}:${udayadhiV.toString().padStart(2, '0')} நா.வி`;
+    
+    // 8. LMT (Local Mean Time)
+    const stdMeridian = (tzOffsetMinutesVal / 60) * 15;
+    const lonDiff = details.lon - stdMeridian;
+    const lmtOffsetMinutes = lonDiff * 4;
+    const lmtDate = new Date(birthDateObj.getTime() + lmtOffsetMinutes * 60 * 1000);
+    const lmtHM = formatTimeHM(lmtDate) + ":" + lmtDate.getSeconds().toString().padStart(2, '0');
+    
+    // 9. Birth Hora
+    const horaIdx = Math.floor(elapsedHours) % 24;
+    const weekdayLords = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'];
+    const startLord = weekdayLords[birthDayIdx];
+    const horaCycle = ['Sun', 'Venus', 'Mercury', 'Moon', 'Saturn', 'Jupiter', 'Mars'];
+    const startLordIdx = horaCycle.indexOf(startLord);
+    const currentHoraLord = horaCycle[(startLordIdx + horaIdx) % 7];
+    const horaLordTamil = t.planets[currentHoraLord] || currentHoraLord;
+    const horaGender = (currentHoraLord === 'Moon' || currentHoraLord === 'Venus') 
+        ? (state.lang === 'ta' ? 'பெண்' : 'Female') 
+        : (state.lang === 'ta' ? 'ஆண்' : 'Male');
+        
+    // 10. Separated Tithi and Paksha
+    const tithiFull = getTithiName(data.panchang.tithiIdx, state.lang);
+    const tithiNameOnly = tithiFull.includes(' - ') ? tithiFull.split(' - ')[1] : tithiFull;
+    const pakshaName = data.panchang.tithiIdx < 15 
+        ? (state.lang === 'ta' ? "சுக்கில ( வளர்பிறை )" : "Shukla Paksha (Waxing)") 
+        : (state.lang === 'ta' ? "கிருஷ்ண ( தேய்பிறை )" : "Krishna Paksha (Waning)");
+        
+    // 11. Print Rasi and Navamsam HTML (always South Indian style for print formatting)
+    const printRasiGridHtml = renderChartGrid(data.planets, false, t, starPadaText, genderLabel, dtDisplay, latDisplay, lonDisplay, cityText);
+    const printNavamsamGridHtml = renderChartGrid(data.planets, true, t, starPadaText, genderLabel, dtDisplay, latDisplay, lonDisplay, cityText);
+    
+    // 12. Print Table Rows
+    let printTableRows = '';
+    const rasiLords = ['Mars', 'Venus', 'Mercury', 'Moon', 'Sun', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Saturn', 'Jupiter'];
+    const starLords = ['Ketu', 'Venus', 'Sun', 'Moon', 'Mars', 'Rahu', 'Jupiter', 'Saturn', 'Mercury'];
+    
+    data.planets.forEach(p => {
+        const pTamilName = t.planets[p.name];
+        const pEnglishName = translations['en'].planets[p.name];
+        const planetDisplayName = state.lang === 'ta' ? pTamilName : pEnglishName;
+        
+        const relativeLon = p.longitude % 30;
+        const deg = Math.floor(relativeLon);
+        const minTotal = (relativeLon - deg) * 60;
+        const min = Math.floor(minTotal);
+        const sec = Math.floor((minTotal - min) * 60);
+        const signLonStr = `${deg}° ${min.toString().padStart(2, '0')}' ${sec.toString().padStart(2, '0')}"`;
+        
+        const absDeg = Math.floor(p.longitude);
+        const absMinTotal = (p.longitude - absDeg) * 60;
+        const absMin = Math.floor(absMinTotal);
+        const absSec = Math.floor((absMinTotal - absMin) * 60);
+        const absLonStr = `${absDeg}° ${absMin.toString().padStart(2, '0')}' ${absSec.toString().padStart(2, '0')}"`;
+        
+        const rasiName = state.lang === 'ta' ? t.signs[signKeys[p.rasiIdx]] : translations['en'].signs[signKeys[p.rasiIdx]];
+        const rasiLordName = state.lang === 'ta' ? t.planets[rasiLords[p.rasiIdx]] : translations['en'].planets[rasiLords[p.rasiIdx]];
+        const starName = state.lang === 'ta' ? t.stars[p.starIdx] : translations['en'].stars[p.starIdx];
+        const starLordName = state.lang === 'ta' ? t.planets[starLords[p.starIdx % 9]] : translations['en'].planets[starLords[p.starIdx % 9]];
+        
+        let statusVal = '-';
+        if (p.isRetro && p.name !== 'Lagna' && p.name !== 'Mandi') {
+            statusVal = state.lang === 'ta' ? 'வ' : 'R';
+        }
+        
+        printTableRows += `
+            <tr>
+                <td><strong>${planetDisplayName}</strong></td>
+                <td>${signLonStr}</td>
+                <td>${starName}</td>
+                <td>${p.pada}</td>
+                <td>${starLordName}</td>
+                <td>${absLonStr}</td>
+                <td>${rasiName}</td>
+                <td>${rasiLordName}</td>
+                <td>${statusVal}</td>
+            </tr>
+        `;
+    });
+    
+    // 13. Dasa Balance and Active Dasa Bhukti strings
+    const firstPeriod = data.dasaTimeline[0];
+    const firstPeriodEnd = new Date(firstPeriod.end);
+    const firstDasaAge = getAgeYMD(birthDateObj, firstPeriodEnd);
+    const lordName = state.lang === 'ta' ? t.planets[firstPeriod.lord] : translations['en'].planets[firstPeriod.lord];
+    
+    const dasaBalanceStr = state.lang === 'ta'
+        ? `${lordName} திசை: ${firstDasaAge.years} ஆண்டு, ${firstDasaAge.months} மாதம், ${firstDasaAge.days} நாள். ${formatDate(firstPeriodEnd)} வரை`
+        : `${lordName} Dasa: ${firstDasaAge.years} Years, ${firstDasaAge.months} Months, ${firstDasaAge.days} Days. Up to ${formatDate(firstPeriodEnd)}`;
+        
+    const activePath = findActiveDasaPathAtDate(new Date(), data.dasaTimeline, details.dateStr + 'T' + details.timeStr);
+    let currentDasaBhuktiStr = '-';
+    if (activePath && activePath.length >= 2) {
+        const activeMD = activePath[0];
+        const activeBhukti = activePath[1];
+        const mdLord = state.lang === 'ta' ? t.planets[activeMD.lord] : translations['en'].planets[activeMD.lord];
+        const bhLord = state.lang === 'ta' ? t.planets[activeBhukti.lord] : translations['en'].planets[activeBhukti.lord];
+        
+        const bhuktis = calculateSubPeriods(activeMD, details.dateStr + 'T' + details.timeStr);
+        const activeBhuktiIdx = bhuktis.findIndex(b => b.lord === activeBhukti.lord && new Date(b.start).getTime() === new Date(activeBhukti.start).getTime());
+        let nextBhuktiStr = '';
+        if (activeBhuktiIdx !== -1 && activeBhuktiIdx + 1 < bhuktis.length) {
+            const nextBh = bhuktis[activeBhuktiIdx + 1];
+            const nextLordName = state.lang === 'ta' ? t.planets[nextBh.lord] : translations['en'].planets[nextBh.lord];
+            nextBhuktiStr = state.lang === 'ta'
+                ? `. இதற்கு மேல் ${mdLord} திசையில் ${nextLordName} புத்தி.`
+                : `. Followed by ${nextLordName} Bhukti in ${mdLord} Dasa.`;
+        } else {
+            const nextMDIdx = data.dasaTimeline.findIndex(m => m.lord === activeMD.lord) + 1;
+            if (nextMDIdx < data.dasaTimeline.length) {
+                const nextMD = data.dasaTimeline[nextMDIdx];
+                const nextMDBhuktis = calculateSubPeriods(nextMD, details.dateStr + 'T' + details.timeStr);
+                const nextBh = nextMDBhuktis[0];
+                const nextMDLord = state.lang === 'ta' ? t.planets[nextMD.lord] : translations['en'].planets[nextMD.lord];
+                const nextLordName = state.lang === 'ta' ? t.planets[nextBh.lord] : translations['en'].planets[nextBh.lord];
+                nextBhuktiStr = state.lang === 'ta'
+                    ? `. இதற்கு மேல் ${nextMDLord} திசையில் ${nextLordName} புத்தி.`
+                    : `. Followed by ${nextLordName} Bhukti in ${nextMDLord} Dasa.`;
+            }
+        }
+        
+        currentDasaBhuktiStr = state.lang === 'ta'
+            ? `${mdLord} திசையில் ${bhLord} புத்தி ${formatDate(new Date(activeBhukti.start))} முதல் ${formatDate(new Date(activeBhukti.end))} வரை${nextBhuktiStr}`
+            : `${mdLord} Dasa - ${bhLord} Bhukti from ${formatDate(new Date(activeBhukti.start))} to ${formatDate(new Date(activeBhukti.end))}${nextBhuktiStr}`;
+    }
+    
     return `
-        <div class="results-container">
+        <!-- SCREEN VIEW -->
+        <div class="screen-only results-container">
             <!-- Top Back Button -->
             <div style="display: flex; justify-content: flex-start; margin-bottom: -10px;">
                 <button class="btn-secondary" id="top-back-btn" style="width: 40px; height: 40px; border-radius: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center;" title="${t.actions.back}">
@@ -667,6 +886,118 @@ function renderResultsView(t) {
                 </button>
             </div>
         </div>
+        
+        <!-- PRINT-ONLY HIGH-FIDELITY LAYOUT (MATCHING REFERENCE SCREENSHOT) -->
+        <div class="print-only print-horoscope-page">
+            <div class="print-page-border">
+                <!-- Auspicious starting symbol -->
+                <div class="print-auspicious-symbol">உ</div>
+                <h1 class="print-page-title">${state.lang === 'ta' ? 'ஜாதக கணிதம்' : 'Horoscope Calculations'}</h1>
+                
+                <!-- Birth details key-value grid -->
+                <div class="print-details-grid">
+                    <!-- Column 1 -->
+                    <div class="print-details-col">
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'பெயர்' : 'Name'}</span><span class="val">: ${details.name}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'பிறந்த தேதி' : 'Date of Birth'}</span><span class="val">: ${details.dateStr.split('-').reverse().join('-')}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'பிறந்த நேரம்' : 'Time of Birth'}</span><span class="val">: ${details.timeStr.replace(/:00$/, '')} ${details.ampm}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'பாலினம்' : 'Gender'}</span><span class="val">: ${details.gender === 'male' ? (state.lang === 'ta' ? 'ஆண் / Male' : 'Male') : (state.lang === 'ta' ? 'பெண் / Female' : 'Female')}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'பிறந்த கிழமை' : 'Birth Day'}</span><span class="val">: ${dayNameStr}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'ஜென்ம நட்சத்திரம்' : 'Birth Star'}</span><span class="val">: ${t.stars[data.panchang.starIdx]}-${data.panchang.pada} ${state.lang === 'ta' ? 'ஆம் பாதம்' : 'Pada'}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'ஜென்ம இராசி' : 'Birth Rasi'}</span><span class="val">: ${t.signs[signKeys[data.panchang.rasiIdx]]}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'ஜென்ம லக்கினம்' : 'Lagna'}</span><span class="val">: ${t.signs[signKeys[getRasiSignIndex(data.lagnaLon)]]}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'பொதுநேரம், திருத்தம்' : 'Timezone Offset'}</span><span class="val">: ${timezoneOffsetStr}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'தமிழ் நேரம்' : 'Tamil Time'}</span><span class="val">: ${tamilTimeDisplay}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'பிறந்த ஊர்' : 'Birth Place'}</span><span class="val">: ${details.city}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'சூரிய உதயம்' : 'Sunrise'}</span><span class="val">: ${sunriseHM}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'சூரிய அஸ்தமனம்' : 'Sunset'}</span><span class="val">: ${sunsetHM}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'சூ.உ. தமிழ் நேரம்' : 'Sunrise Tamil Time'}</span><span class="val">: ${sunriseTamilTime}</span></div>
+                    </div>
+                    
+                    <!-- Column 2 -->
+                    <div class="print-details-col">
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'சூ-அ தமிழ் நேரம்' : 'Sunset Tamil Time'}</span><span class="val">: ${sunsetTamilTime}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'அகஸ்' : 'Ahas (Dinamana)'}</span><span class="val">: ${ahasDisplay}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'அயனாம்சம்' : 'Ayanamsa'}</span><span class="val">: -${data.ayanamsa.toFixed(2)} (${state.lang === 'ta' ? 'லஹரி' : 'Lahiri'})</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'தமிழ் தேதி' : 'Tamil Date'}</span><span class="val">: ${tamilDateStr}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'உதயாதி நாழிகை' : 'Udayadhi Naazhigai'}</span><span class="val">: ${udayadhiDisplay}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'சுதேச மணி' : 'Local Mean Time (LMT)'}</span><span class="val">: ${lmtHM}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'நட்சத்திர ஹோரை' : 'Star Hora'}</span><span class="val">: ${formatTimeHM(new Date(birthDateObj.getTime() - 25 * 60 * 1000))}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'அட்சாம்சம்' : 'Latitude'}</span><span class="val">: ${latDisplayVal}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'தீர்க்காம்சம்' : 'Longitude'}</span><span class="val">: ${lonDisplayVal}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'திதி' : 'Tithi'}</span><span class="val">: ${tithiNameOnly}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'ஜனன ஹோரை' : 'Birth Hora'}</span><span class="val">: ${horaLordTamil} (${horaGender})</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'பட்சம்' : 'Paksha'}</span><span class="val">: ${pakshaName}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'கரணம்' : 'Karana'}</span><span class="val">: ${getKaranaName(data.panchang.karanaIdx, state.lang)}</span></div>
+                        <div class="print-detail-item"><span class="label">${state.lang === 'ta' ? 'யோகம்' : 'Yoga'}</span><span class="val">: ${getYogaName(data.panchang.yogaIdx, state.lang)}</span></div>
+                    </div>
+                </div>
+                
+                <!-- Divider -->
+                <hr class="print-divider">
+                
+                <!-- Charts Grid (Rasi & Navamsam side-by-side) -->
+                <div class="print-charts-grid">
+                    <div class="print-chart-box">
+                        <div class="print-chart-title">${state.lang === 'ta' ? 'இராசி' : 'Rasi Chart'}</div>
+                        <div class="chart-grid rasi-theme">${printRasiGridHtml}</div>
+                    </div>
+                    <div class="print-chart-box">
+                        <div class="print-chart-title">${state.lang === 'ta' ? 'நவாம்சம்' : 'Navamsam Chart'}</div>
+                        <div class="chart-grid nav-theme">${printNavamsamGridHtml}</div>
+                    </div>
+                </div>
+                
+                <!-- Divider -->
+                <hr class="print-divider">
+                
+                <!-- Planetary Longitudes Table -->
+                <div class="print-table-container">
+                    <table class="print-planet-table">
+                        <thead>
+                            <tr>
+                                <th>${state.lang === 'ta' ? 'கிரகம்' : 'Planet'}</th>
+                                <th>${state.lang === 'ta' ? 'பா-கலை' : 'Sign Longitude'}</th>
+                                <th>${state.lang === 'ta' ? 'நட்சத்திரம்' : 'Star'}</th>
+                                <th>${state.lang === 'ta' ? 'ந.பாதம்' : 'Pada'}</th>
+                                <th>${state.lang === 'ta' ? 'சாரம்' : 'Star Lord'}</th>
+                                <th>${state.lang === 'ta' ? 'நிராயண' : 'Longitude'}</th>
+                                <th>${state.lang === 'ta' ? 'ராசி' : 'Rasi'}</th>
+                                <th>${state.lang === 'ta' ? 'ராசி அதிபதி' : 'Rasi Lord'}</th>
+                                <th>${state.lang === 'ta' ? 'வேகம்' : 'Status'}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${printTableRows}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Dasa Balance Info -->
+                <div class="print-dasa-balance">
+                    <div><strong>${state.lang === 'ta' ? 'பிறந்த கால திசை இருப்பு (ஜனன கால தசாசேஷம்)' : 'Dasa Balance at Birth'}:-</strong> ${dasaBalanceStr}</div>
+                    <div style="margin-top: 5px;"><strong>${state.lang === 'ta' ? 'நடப்பு தசா புத்தி' : 'Current Dasa Bhukti'}:-</strong> ${currentDasaBhuktiStr}</div>
+                </div>
+                
+                <!-- Footer with QR and capsule -->
+                <div class="print-footer">
+                    <div class="print-footer-left">
+                        <div class="print-capsule">
+                            To Check Marriage Match, Horoscope - Sriranga Jothida Nilayam - Whatsapp / Call : +91 9442054021
+                        </div>
+                        <div class="print-attribution">
+                            This Jadhagam computed from SrirangamInfo.com Free online Jadhagam WEB-APP/ Software @ https://srirangaminfo.com/jathagam-tamil.php
+                        </div>
+                    </div>
+                    <div class="print-footer-right">
+                        <div class="print-qr-wrapper">
+                            <img class="print-qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(window.location.href)}" alt="QR Code">
+                            <div class="print-qr-label">Jathgam More Details - Scan</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     `;
 }
 
@@ -728,6 +1059,14 @@ function renderNorthChartGrid(planets, isNavamsam, t) {
     `;
 }
 
+function getPlanetShorthand(p, t, lang) {
+    let pShort = t.planetsShort[p.name];
+    if (p.isRetro && p.name !== 'Rahu' && p.name !== 'Ketu' && p.name !== 'Lagna' && p.name !== 'Mandi') {
+        pShort += lang === 'ta' ? ' (வ)' : ' (R)';
+    }
+    return pShort;
+}
+
 function renderChartGrid(planets, isNavamsam, t, starPada, gender, datetime, lat, lon, city) {
     const layout = [
         { signIdx: 11, row: 1, col: 1 }, // Pisces
@@ -753,17 +1092,14 @@ function renderChartGrid(planets, isNavamsam, t, starPada, gender, datetime, lat
     layout.forEach(cell => {
         const matchingPlanets = planets.filter(p => {
             const sign = isNavamsam ? p.navamsamIdx : p.rasiIdx;
-            // In Navamsam, we don't display the Lagna text item "ல" in the box listing, we just draw the orange triangle in that box!
-            // Wait, the reference screenshot has "ல" in the Scorpio box of the Navamsam chart! Yes, it does have "ல" inside the cell, as well as the orange triangle.
-            // But wait, the Lagna planet name is 'Lagna'. We want to display the shorthand (e.g. "ல" or "As").
-            return sign === cell.signIdx && (p.name !== 'Lagna' || !isNavamsam || p.name === 'Lagna');
+            return sign === cell.signIdx;
         });
         
         // Generate planetary degree label (only for Rasi chart, in top-left)
         let degreeLabelHtml = '';
         if (!isNavamsam) {
             const lines = matchingPlanets.map(p => {
-                const pShort = t.planetsShort[p.name];
+                const pShort = getPlanetShorthand(p, t, state.lang);
                 const relativeLon = p.longitude % 30;
                 return `${pShort}-${relativeLon.toFixed(2)}`;
             });
@@ -773,7 +1109,7 @@ function renderChartGrid(planets, isNavamsam, t, starPada, gender, datetime, lat
         // Generate list of planet shorthands in center of cell
         let planetListHtml = '';
         matchingPlanets.forEach(p => {
-            const pShort = t.planetsShort[p.name];
+            const pShort = getPlanetShorthand(p, t, state.lang);
             planetListHtml += `<div class="cell-planet-item">${pShort}</div>`;
         });
         
@@ -789,7 +1125,20 @@ function renderChartGrid(planets, isNavamsam, t, starPada, gender, datetime, lat
         const style = `grid-row: ${cell.row}; grid-column: ${cell.col};`;
         
         const isLagnaCell = cell.signIdx === lagnaSignIdx;
-        const cellClass = isLagnaCell ? 'chart-cell lagna-highlight' : 'chart-cell';
+        let cellClass = isLagnaCell ? 'chart-cell lagna-highlight' : 'chart-cell';
+        if (isLagnaCell) {
+            let cornerClass = '';
+            if (cell.row === 1) {
+                cornerClass = cell.col <= 2 ? 'lagna-tl' : 'lagna-tr';
+            } else if (cell.row === 4) {
+                cornerClass = cell.col <= 2 ? 'lagna-bl' : 'lagna-br';
+            } else if (cell.col === 1) {
+                cornerClass = cell.row <= 2 ? 'lagna-tl' : 'lagna-bl';
+            } else {
+                cornerClass = cell.row <= 2 ? 'lagna-tr' : 'lagna-br';
+            }
+            cellClass += ' ' + cornerClass;
+        }
         
         cellsHtml += `
             <div class="${cellClass}" style="${style}">

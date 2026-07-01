@@ -177,10 +177,29 @@ export function calculateHoroscope({ name, gender, dateStr, timeStr, lat, lon, f
     };
     
     const planetLongitudes = {};
+    const planetRetrograde = {};
     for (const [pName, pBody] of Object.entries(bodies)) {
         const vector = GeoVector(pBody, astroTime, true);
         const ecl = Ecliptic(vector);
-        planetLongitudes[pName] = (ecl.elon - ayanamsa + 360) % 360;
+        const lon = (ecl.elon - ayanamsa + 360) % 360;
+        planetLongitudes[pName] = lon;
+        
+        // Check retrograde status
+        if (pName === 'Sun' || pName === 'Moon') {
+            planetRetrograde[pName] = false;
+        } else {
+            const laterTime = new AstroTime(new Date(astroTime.date.getTime() + 60 * 60 * 1000));
+            const laterVector = GeoVector(pBody, laterTime, true);
+            const laterEcl = Ecliptic(laterVector);
+            const laterJd = 2451545.0 + laterTime.ut;
+            const laterAyanamsa = getAyanamsa(laterJd);
+            const laterLon = (laterEcl.elon - laterAyanamsa + 360) % 360;
+            
+            let diff = laterLon - lon;
+            if (diff > 180) diff -= 360;
+            if (diff < -180) diff += 360;
+            planetRetrograde[pName] = diff < 0;
+        }
     }
     
     // 3. Calculate Rahu and Ketu
@@ -202,6 +221,11 @@ export function calculateHoroscope({ name, gender, dateStr, timeStr, lat, lon, f
     planetLongitudes["Ketu"] = ketuSidereal;
     planetLongitudes["Lagna"] = lagnaSidereal;
     
+    planetRetrograde["Rahu"] = true; // Nodes are always retrograde
+    planetRetrograde["Ketu"] = true;
+    planetRetrograde["Lagna"] = false;
+    planetRetrograde["Mandi"] = false;
+    
     // 4. Calculate Mandi
     const mandiSidereal = calculateMandiLongitude(birthDate, lat, lon);
     planetLongitudes["Mandi"] = mandiSidereal;
@@ -219,6 +243,7 @@ export function calculateHoroscope({ name, gender, dateStr, timeStr, lat, lon, f
         const navamsamIdx = getNavamsamSignIndex(lon);
         // House number (1-12) starting from Lagna
         const house = ((rasiIdx - lagnaSign + 12) % 12) + 1;
+        const isRetro = planetRetrograde[pName] || false;
         
         planetsDetails.push({
             name: pName,
@@ -227,7 +252,8 @@ export function calculateHoroscope({ name, gender, dateStr, timeStr, lat, lon, f
             starIdx,
             pada,
             navamsamIdx,
-            house
+            house,
+            isRetro
         });
     }
     
@@ -248,6 +274,13 @@ export function calculateHoroscope({ name, gender, dateStr, timeStr, lat, lon, f
     
     const dasaTimeline = calculateVimshottariDasa(moonLon, birthDate);
     
+    // Sunrise/sunset for details
+    const observer = new Observer(lat, lon, 0);
+    const searchStart = new AstroTime(new Date(birthDate.getTime() - 12 * 3600 * 1000));
+    const sunrise = SearchRiseSet(Body.Sun, observer, 1, searchStart, 1);
+    const sunset = SearchRiseSet(Body.Sun, observer, -1, searchStart, 1);
+    const nextSunrise = SearchRiseSet(Body.Sun, observer, 1, new AstroTime(sunset.date), 1);
+    
     return {
         birthDetails: { name, gender, dateStr, timeStr, lat, lon, fatherName, motherName, ampm, city },
         ayanamsa,
@@ -260,7 +293,10 @@ export function calculateHoroscope({ name, gender, dateStr, timeStr, lat, lon, f
             karanaIdx,
             starIdx: getStarAndPada(moonLon).starIdx,
             pada: getStarAndPada(moonLon).pada,
-            rasiIdx: getRasiSignIndex(moonLon)
+            rasiIdx: getRasiSignIndex(moonLon),
+            sunrise: sunrise.date,
+            sunset: sunset.date,
+            nextSunrise: nextSunrise.date
         }
     };
 }

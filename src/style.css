@@ -1260,3 +1260,332 @@ body.light-mode .north-rashi-num {
 #clear-place-btn:hover {
     color: var(--accent);
 }
+
+/* Print Only Helper Class */
+.print-only {
+    display: none;
+}
+
+/* Lagna Corner Highlights */
+.chart-cell.lagna-highlight {
+    position: relative;
+}
+.chart-cell.lagna-highlight.lagna-tl::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 14px 14px 0 0;
+    border-color: #ea580c transparent transparent transparent;
+    z-index: 5;
+}
+.chart-cell.lagna-highlight.lagna-tr::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0 14px 14px 0;
+    border-color: transparent #ea580c transparent transparent;
+    z-index: 5;
+}
+.chart-cell.lagna-highlight.lagna-bl::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 14px 0 0 14px;
+    border-color: transparent transparent transparent #ea580c;
+    z-index: 5;
+}
+.chart-cell.lagna-highlight.lagna-br::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0 0 14px 14px;
+    border-color: transparent transparent #ea580c transparent;
+    z-index: 5;
+}
+
+/* Print Media Styles */
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 5mm 8mm;
+    }
+
+    /* Hide screen elements */
+    header, footer, .screen-only, #app > header, #app > footer, .actions-container, #app > main > div.screen-only {
+        display: none !important;
+    }
+
+    /* Show print elements */
+    .print-only {
+        display: block !important;
+    }
+
+    body {
+        background: white !important;
+        color: black !important;
+        font-family: var(--font-tamil);
+        margin: 0;
+        padding: 0;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* High-Fidelity printed horoscope page container */
+    .print-horoscope-page {
+        width: 100%;
+        box-sizing: border-box;
+        background: white !important;
+        color: black !important;
+    }
+
+    .print-page-border {
+        border: 3px double #000;
+        padding: 15px;
+        box-sizing: border-box;
+        min-height: 280mm; /* Fit to A4 length safely */
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .print-auspicious-symbol {
+        text-align: center;
+        font-size: 22px;
+        font-weight: bold;
+        margin-bottom: 2px;
+    }
+
+    .print-page-title {
+        text-align: center;
+        font-size: 18px;
+        font-weight: bold;
+        margin: 0 0 12px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .print-details-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0 25px;
+        margin-bottom: 8px;
+        font-size: 10.5px;
+        line-height: 1.35;
+    }
+
+    .print-details-col {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .print-detail-item {
+        display: flex;
+        margin-bottom: 1.5px;
+    }
+
+    .print-detail-item .label {
+        font-weight: bold;
+        width: 140px;
+        display: inline-block;
+    }
+
+    .print-detail-item .val {
+        flex-grow: 1;
+    }
+
+    .print-divider {
+        border: none;
+        border-top: 1.5px solid #000;
+        margin: 6px 0;
+    }
+
+    .print-charts-grid {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        page-break-inside: avoid;
+    }
+
+    .print-chart-box {
+        width: 48%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .print-chart-title {
+        font-size: 13px;
+        font-weight: bold;
+        margin-bottom: 4px;
+    }
+
+    .print-charts-grid .chart-grid {
+        border: 2px solid #000 !important;
+        background: #fff !important;
+        width: 100%;
+        max-width: 250px !important;
+        aspect-ratio: 1;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+        box-sizing: border-box;
+        box-shadow: none !important;
+    }
+
+    .print-charts-grid .chart-cell {
+        border: 1px solid #000 !important;
+        color: #000 !important;
+        padding: 3px !important;
+        font-size: 9px !important;
+        background: transparent !important;
+    }
+
+    .print-charts-grid .cell-degree-info {
+        font-size: 6.5px !important;
+        line-height: 1.1;
+    }
+
+    .print-charts-grid .cell-planets-list {
+        font-size: 11px !important;
+        font-weight: bold;
+    }
+
+    .print-charts-grid .chart-center-cell {
+        border: 1px solid #000 !important;
+        background: #fff !important;
+        color: #000 !important;
+        padding: 4px !important;
+    }
+    
+    .print-charts-grid .chart-center-cell::before {
+        display: none !important;
+    }
+
+    .print-charts-grid .center-title {
+        font-size: 12px !important;
+        margin: 0 0 1px 0 !important;
+        font-weight: bold;
+    }
+
+    .print-charts-grid .center-star {
+        font-size: 9px !important;
+        margin-bottom: 2px !important;
+        color: #000 !important;
+    }
+
+    .print-charts-grid .center-info-row {
+        font-size: 7.5px !important;
+        margin: 0.5px 0 !important;
+        color: #000 !important;
+    }
+
+    .print-table-container {
+        margin-bottom: 8px;
+        page-break-inside: avoid;
+    }
+
+    .print-planet-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9.5px;
+        border: 1.5px solid #000;
+    }
+
+    .print-planet-table th {
+        border-bottom: 2px solid #000 !important;
+        padding: 4px 6px !important;
+        font-weight: bold;
+        color: #000 !important;
+        text-align: left;
+        background: #eaeaea !important;
+    }
+
+    .print-planet-table td {
+        border-bottom: 1px solid #000 !important;
+        padding: 3px 6px !important;
+        color: #000 !important;
+        background: transparent !important;
+    }
+
+    .print-dasa-balance {
+        font-size: 10px;
+        line-height: 1.35;
+        margin-bottom: 8px;
+        border: 1.5px dashed #000;
+        padding: 6px;
+        page-break-inside: avoid;
+    }
+
+    .print-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 4px;
+        page-break-inside: avoid;
+    }
+
+    .print-footer-left {
+        width: 78%;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .print-capsule {
+        background: #000 !important;
+        color: #fff !important;
+        font-weight: bold;
+        font-size: 8.5px;
+        text-align: center;
+        padding: 4px 10px;
+        border-radius: 20px;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .print-attribution {
+        font-size: 7px;
+        color: #444;
+    }
+
+    .print-footer-right {
+        width: 20%;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .print-qr-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .print-qr-code {
+        width: 48px;
+        height: 48px;
+    }
+
+    .print-qr-label {
+        font-size: 6.5px;
+        font-weight: bold;
+        margin-top: 1px;
+        text-align: center;
+        color: #000;
+    }
+}
